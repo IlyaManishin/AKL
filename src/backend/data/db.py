@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -9,7 +10,7 @@ class BoardPosition(Base):
     __tablename__ = "BoardPosition"
     # нужен первичный ключ
     id = Column(Integer, primary_key=True, autoincrement=True)
-    time = Column(DateTime, default=datetime.now)
+    time = Column(DateTime, default=datetime.now())
     name = Column(String)
     rssi = Column(Integer)
 

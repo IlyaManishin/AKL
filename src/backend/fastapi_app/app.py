@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import pathlib
 
 from app_state import GlobalState, AppStates
-from backend.data import db
+from data import db
 app = FastAPI()
 
 # Абсолютный путь к каталогу "static" (src/backend/fastapi_app/static)
