@@ -5,7 +5,7 @@ import network
 from models import BLData
 import mqtt
 
-SCAN_MS = 1500 
+SCAN_MS = 2000
 ATOM_SCAN_TIME = 100 
 
 SSID = "OnePlus"       
@@ -97,6 +97,7 @@ while True:
     print(res)
             
     mqtt.mqtt_send_bldata(res)
+
 
 
 
