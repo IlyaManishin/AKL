@@ -44,7 +44,7 @@ def rssi_to_distance(rssi: float) -> float:
     """Переводит RSSI (дБм) в расстояние (м)"""
     return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
-def get_board_pos(data: list[StationRssi]) -> Position:
+def get_board_pos1(data: list[StationRssi]) -> Position:
     if len(data) < 3:
         return
     
@@ -89,3 +89,29 @@ def get_board_pos(data: list[StationRssi]) -> Position:
     if l == 0:
         return p2
     return Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
+
+def get_board_pos(data: list[StationRssi]) -> Position:
+    if len(data) < 3:
+        return
+
+    stations_pos = load_stations()
+    data_sorted = sorted(data, key=lambda s: s.rssi, reverse=True)
+
+    best_three = data_sorted[:3]
+
+    weighted_sum_x = 0.0
+    weighted_sum_y = 0.0
+    total_weight = 0.0
+
+    for station in best_three:
+        pos = stations_pos[station.name]
+        dist = rssi_to_distance(station.rssi)
+        weight = 1.0 / (dist + 1e-3)  # избегаем деления на ноль
+        weighted_sum_x += pos.x * weight
+        weighted_sum_y += pos.y * weight
+        total_weight += weight
+
+    avg_x = weighted_sum_x / total_weight
+    avg_y = weighted_sum_y / total_weight
+
+    return Position(avg_x, avg_y)
