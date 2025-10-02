@@ -34,3 +34,11 @@ def connect_mqtt():
     client.connect()
     print("Подключено к MQTT:", MQTT_BROKER)
     return client
+
+
+def mqtt_disconnect():
+    try:
+        client.disconnect()
+        print("Отключено от MQTT брокера")
+    except:
+        pass
