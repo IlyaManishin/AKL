@@ -5,7 +5,7 @@ import math
 import csv
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-STATIONS_PATH = os.path.join(CUR_DIR, "data", "stations.txt")
+STATIONS_PATH = os.path.join(CUR_DIR, "data", "beacons.txt")
 
 
 @dataclass
@@ -33,9 +33,16 @@ def load_stations() -> dict[str, Position]:
     return stations
 
 
-def rssi_to_distance(rssi: float, tx_power: float = -59.0, n: float = 2.0) -> float:
-    return 10 ** ((tx_power - rssi) / (10 * n))
+# def rssi_to_distance(rssi: float, tx_power: float = -59.0, n: float = 2.0) -> float:
+#     return 10 ** ((tx_power - rssi) / (10 * n))
 
+d0 = 1.0
+rssi_d0 = -40
+n = 2.75
+
+def rssi_to_distance(rssi: float) -> float:
+    """Переводит RSSI (дБм) в расстояние (м)"""
+    return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
 def get_board_pos(data: list[StationRssi]) -> Position:
     if len(data) < 3:

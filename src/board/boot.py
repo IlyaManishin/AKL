@@ -5,11 +5,13 @@ import network
 from models import BLData
 import mqtt
 
-SCAN_MS = 100  
-ITERATIONS = 10  
+SCAN_MS = 1500 
+ATOM_SCAN_TIME = 100 
 
-SSID = "xxx"       
-PASSWORD = "xxx"  
+SSID = "OnePlus"       
+PASSWORD = "1234abcd"
+# SSID = "TECNO POVA 5"       
+# PASSWORD = "1111111978"  
 
 def connect_wifi():
     wlan = network.WLAN(network.STA_IF)  
@@ -49,7 +51,7 @@ def decode_name(adv):
         i += 1 + length
     return None
 
-def scan_once(scan_ms=SCAN_MS):
+def scan_once(scan_ms=ATOM_SCAN_TIME):
     devices = {}
 
     def bt_irq(event, data):
@@ -69,15 +71,15 @@ def scan_once(scan_ms=SCAN_MS):
 def find_stations():
     res = []
     aggregated = {}  
-
-    for _ in range(ITERATIONS):
+    
+    iterations = int(SCAN_MS/ATOM_SCAN_TIME)
+    for _ in range(iterations):
         found = scan_once()
         for mac, (rssi, name) in found.items():
             if mac not in aggregated:
                 aggregated[mac] = [0, 0, name]
             aggregated[mac][0] += rssi
             aggregated[mac][1] += 1
-        time.sleep(0.05) 
     
     for mac, (rssi_sum, count, name) in aggregated.items():
         avg_rssi = rssi_sum // count
@@ -92,11 +94,9 @@ mqtt.mqtt_connect()
 while True:
     res: list[BLData] = find_stations()
     res.sort(key=lambda i: i.get_index())
-    #print(res)
-    for i in res:
-        if i.get_index() == 3:
-            print(i)
+    print(res)
             
     mqtt.mqtt_send_bldata(res)
+
 
 
