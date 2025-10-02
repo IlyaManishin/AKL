@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
     <title>Система локализации платы</title>
     <style>
       body {
@@ -27,43 +27,30 @@
       .map__button {
         margin: 4px;
         padding: 8px 14px;
-        border: none;
+        border: 0;
         border-radius: 6px;
         color: #fff;
         font-size: 14px;
         cursor: pointer;
-        transition: background 0.2s;
       }
       .map__button_start {
         background: #27ae60;
       }
-      .map__button_start:hover {
-        background: #219150;
-      }
       .map__button_finish {
         background: #7f8c8d;
-      }
-      .map__button_finish:hover {
-        background: #606c6d;
       }
       .map__button_export {
         background: #9b59b6;
       }
-      .map__button_export:hover {
-        background: #8e44ad;
-      }
       .map__button_delete {
         background: #e74c3c;
-      }
-      .map__button_delete:hover {
-        background: #c0392b;
       }
       .map__container {
         display: flex;
         justify-content: center;
         align-items: center;
       }
-      .map__canvas {
+      canvas {
         background: #fff;
         border: 1px solid #ccc;
       }
@@ -86,89 +73,124 @@
         </button>
       </div>
       <div class="map__container">
-        <canvas
-          class="map__canvas"
-          id="mapCanvas"
-          width="700"
-          height="700"
-        ></canvas>
+        <canvas id="mapCanvas" width="700" height="700"></canvas>
       </div>
     </div>
 
     <script>
-      const cvs = document.getElementById("mapCanvas"),
-        ctx = cvs.getContext("2d");
+      const cvs = document.getElementById("mapCanvas");
+      const ctx = cvs.getContext("2d");
 
-      // --- Маяки ---
-      const beacons = {
-        1: { x: 3, y: -2.4 },
-        2: { x: -2.4, y: -0.6 },
-        3: { x: 1.8, y: 9 },
-        4: { x: 4.8, y: 18.6 },
-        5: { x: -1.8, y: 26.4 },
-        6: { x: -1.8, y: 34.2 },
-        7: { x: 7.8, y: 34.2 },
-        8: { x: -1.8, y: 40.8 },
-      };
-
+      let beacons = {}; // internal map: id -> {x,y,name}
       let board = { x: 0, y: 0 },
         route = [],
         timer = null;
-      let scale = 1,
-        offsetX = 0,
-        offsetY = 0;
+      let scale = 20,
+        offsetX = cvs.width / 2,
+        offsetY = cvs.height / 2;
 
-      // --- Масштаб ---
+      function mapFromApi(raw) {
+        // raw may be: {"beacons":[{id,name,x,y},...]} OR {"1":{x,y},...}
+        let out = {};
+        if (!raw) return out;
+        if (Array.isArray(raw.beacons)) {
+          raw.beacons.forEach((b) => {
+            if (b && b.id != null && b.x != null && b.y != null)
+              out[String(b.id)] = {
+                x: +b.x,
+                y: +b.y,
+                name: b.name || "beacon_" + b.id,
+              };
+          });
+          return out;
+        }
+        // object style
+        if (typeof raw === "object") {
+          // detect numeric keys or beacon_N keys
+          for (const k of Object.keys(raw)) {
+            const v = raw[k];
+            if (v && v.x != null && v.y != null) {
+              out[String(k)] = {
+                x: +v.x,
+                y: +v.y,
+                name: v.name || "beacon_" + k,
+              };
+            }
+          }
+        }
+        return out;
+      }
+
       function computeTransform() {
-        const xs = Object.values(beacons).map((p) => p.x);
-        const ys = Object.values(beacons).map((p) => p.y);
-
-        const minX = Math.min(...xs),
-          maxX = Math.max(...xs);
-        const minY = Math.min(...ys),
-          maxY = Math.max(...ys);
-
-        // расстояния до (0,0)
+        const ids = Object.keys(beacons);
+        if (ids.length === 0) {
+          scale = 20;
+          offsetX = cvs.width / 2;
+          offsetY = cvs.height / 2;
+          return;
+        }
+        const xs = ids.map((i) => beacons[i].x);
+        const ys = ids.map((i) => beacons[i].y);
+        const minX = Math.min(...xs, board.x);
+        const maxX = Math.max(...xs, board.x);
+        const minY = Math.min(...ys, board.y);
+        const maxY = Math.max(...ys, board.y);
         const maxRange = Math.max(
           Math.abs(minX),
           Math.abs(maxX),
           Math.abs(minY),
-          Math.abs(maxY)
+          Math.abs(maxY),
+          0.0001
         );
         const padding = 40;
-
-        scale = (cvs.width / 2 - padding) / maxRange;
-
-        // смещение (центр карты = (0,0))
+        const half = Math.min(cvs.width, cvs.height) / 2 - padding;
+        scale = half / maxRange;
+        if (!isFinite(scale) || scale <= 0) scale = 20;
         offsetX = cvs.width / 2;
         offsetY = cvs.height / 2;
       }
 
-      // --- Перевод ---
       function toCanvas(p) {
-        return { x: p.x * scale + offsetX, y: -p.y * scale + offsetY };
+        return { x: offsetX + p.x * scale, y: offsetY - p.y * scale };
       }
 
-      // --- Отрисовка ---
       function drawAll() {
         ctx.clearRect(0, 0, cvs.width, cvs.height);
-
-        // сетка
+        // if no beacons => draw axes
+        if (Object.keys(beacons).length === 0) {
+          ctx.strokeStyle = "#34495e";
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(0, cvs.height / 2);
+          ctx.lineTo(cvs.width, cvs.height / 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cvs.width / 2, 0);
+          ctx.lineTo(cvs.width / 2, cvs.height);
+          ctx.stroke();
+          ctx.fillStyle = "#34495e";
+          ctx.fillText("Нет маяков", 10, 20);
+          return;
+        }
+        // grid
         ctx.strokeStyle = "#ecf0f1";
-        for (let x = offsetX % scale; x < cvs.width; x += scale) {
+        ctx.lineWidth = 1;
+        let startX = offsetX - Math.floor(offsetX / scale) * scale;
+        for (let x = startX; x < cvs.width; x += scale) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x, cvs.height);
           ctx.stroke();
         }
-        for (let y = offsetY % scale; y < cvs.height; y += scale) {
+        let startY = offsetY - Math.floor(offsetY / scale) * scale;
+        for (let y = startY; y < cvs.height; y += scale) {
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(cvs.width, y);
           ctx.stroke();
         }
 
-        // оси (всегда через (0,0))
+        // axes
         ctx.strokeStyle = "#34495e";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -183,55 +205,93 @@
         ctx.fillText("X", cvs.width - 20, offsetY - 5);
         ctx.fillText("Y", offsetX + 10, 15);
 
-        // маяки
-        for (const [id, p] of Object.entries(beacons)) {
-          let c = toCanvas(p);
+        // beacons
+        ctx.font = "bold 12px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const id of Object.keys(beacons)) {
+          const b = beacons[id];
+          const c = toCanvas(b);
           ctx.beginPath();
-          ctx.arc(c.x, c.y, 12, 0, 2 * Math.PI);
+          ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
           ctx.fillStyle = "#f39c12";
           ctx.fill();
+          ctx.strokeStyle = "#e67e22";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 12px Segoe UI";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
           ctx.fillText(id, c.x, c.y);
         }
 
-        // маршрут
+        // route
         if (route.length > 1) {
           ctx.beginPath();
-          ctx.moveTo(...Object.values(toCanvas(route[0])));
-          route
-            .slice(1)
-            .forEach((p) => ctx.lineTo(...Object.values(toCanvas(p))));
+          const f = toCanvas(route[0]);
+          ctx.moveTo(f.x, f.y);
+          for (let i = 1; i < route.length; i++) {
+            const p = toCanvas(route[i]);
+            ctx.lineTo(p.x, p.y);
+          }
           ctx.strokeStyle = "#2980b9";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
 
-        // плата (центр)
-        let c = toCanvas(board);
+        // board
+        const cb = toCanvas(board);
         ctx.beginPath();
-        ctx.arc(c.x, c.y, 10, 0, 2 * Math.PI);
+        ctx.arc(cb.x, cb.y, 10, 0, Math.PI * 2);
         ctx.fillStyle = "#2980b9";
         ctx.fill();
+        ctx.strokeStyle = "rgba(41,128,185,0.4)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cb.x, cb.y, 16, 0, Math.PI * 2);
+        ctx.stroke();
       }
 
-      // --- Управление ---
+      async function fetchBeacons() {
+        try {
+          const r = await fetch("/api/beacons");
+          if (!r.ok) throw new Error("status " + r.status);
+          const json = await r.json();
+          const mapped = mapFromApi(json);
+          beacons = mapped;
+          computeTransform();
+          drawAll();
+          return true;
+        } catch (err) {
+          console.error("beacons fetch error", err);
+          return false;
+        }
+      }
+
       function startRoute() {
         if (timer) return;
         route = [];
         timer = setInterval(async () => {
           try {
-            let pos = await (await fetch("/api/position")).json();
-            board = pos;
-            route.push({ ...pos });
-            drawAll();
+            const r = await fetch("/api/get_positions");
+            const j = await r.json();
+            let pos = null;
+            if (j.positions && j.positions.length) {
+              const last = j.positions[j.positions.length - 1];
+              pos = { x: +last.x, y: +last.y };
+            } else if (j.x !== undefined && j.y !== undefined) {
+              pos = { x: +j.x, y: +j.y };
+            }
+            if (pos) {
+              board = pos;
+              route.push({ ...pos });
+              computeTransform();
+              drawAll();
+            }
           } catch (e) {
-            console.error("Ошибка:", e);
+            console.error("pos fetch error", e);
           }
         }, 500);
       }
+
       function stopRoute() {
         clearInterval(timer);
         timer = null;
@@ -243,16 +303,21 @@
       }
       function exportRoute() {
         if (!route.length) return alert("Маршрут пуст");
-        const txt = "X\tY\n" + route.map((p) => `${p.x}\t${p.y}`).join("\n");
+        const txt =
+          "X\\tY\\n" + route.map((p) => `${p.x}\\t${p.y}`).join("\\n");
         const a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob([txt]));
         a.download = "route.txt";
         a.click();
       }
 
-      // --- init ---
-      computeTransform();
-      drawAll();
+      window.addEventListener("error", (e) => console.error("window error", e));
+
+      (async function init() {
+        await fetchBeacons();
+        // auto-refresh beacons every 5s
+        setInterval(fetchBeacons, 5000);
+      })();
     </script>
   </body>
 </html>

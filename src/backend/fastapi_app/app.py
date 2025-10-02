@@ -1,5 +1,7 @@
+import csv
+import re
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import pathlib
 
@@ -9,6 +11,7 @@ app = FastAPI()
 
 # Абсолютный путь к каталогу "static" (src/backend/fastapi_app/static)
 static_path = pathlib.Path(__file__).parent / "static"
+data_path = pathlib.Path(__file__).parent.parent / "data" / "beacons.txt"
 
 # Подключаем статические файлы
 app.mount("/static", StaticFiles(directory=static_path), name="static")
@@ -53,3 +56,34 @@ async def get_positions():
         "positions": positions
     }
     return res
+
+@app.get("/api/beacons")
+async def get_beacons():
+    """
+    Returns JSON: {"beacons": [{"id":"1","name":"beacon_1","x":3.0,"y":-2.4}, ...]}
+    Robust against header line and malformed rows.
+    """
+    beacons = []
+    if data_path.exists():
+        with open(data_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.reader(f, delimiter=";")
+            for row in reader:
+                if not row:
+                    continue
+                # skip header
+                first = row[0].strip().lower()
+                if first == "name" or first.startswith("#"):
+                    continue
+                if len(row) < 3:
+                    continue
+                name = row[0].strip()
+                xs = row[1].strip()
+                ys = row[2].strip()
+                try:
+                    x = float(xs); y = float(ys)
+                except Exception:
+                    continue
+                m = re.search(r"(\d+)$", name)
+                id_ = m.group(1) if m else name
+                beacons.append({"id": str(id_), "name": name, "x": x, "y": y})
+    return JSONResponse(content={"beacons": beacons})
