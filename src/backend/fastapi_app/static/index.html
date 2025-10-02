@@ -42,9 +42,6 @@
       .map__button_export {
         background: #9b59b6;
       }
-      .map__button_delete {
-        background: #e74c3c;
-      }
       .map__container {
         display: flex;
         justify-content: center;
@@ -68,9 +65,6 @@
         <button class="map__button map__button_export" onclick="exportRoute()">
           Выгрузить (txt)
         </button>
-        <button class="map__button map__button_delete" onclick="clearRoute()">
-          Удалить маршрут
-        </button>
       </div>
       <div class="map__container">
         <canvas id="mapCanvas" width="700" height="700"></canvas>
@@ -81,7 +75,7 @@
       const cvs = document.getElementById("mapCanvas");
       const ctx = cvs.getContext("2d");
 
-      let beacons = {}; // internal map: id -> {x,y,name}
+      let beacons = {};
       let board = { x: 0, y: 0 },
         route = [],
         timer = null;
@@ -90,7 +84,6 @@
         offsetY = cvs.height / 2;
 
       function mapFromApi(raw) {
-        // raw may be: {"beacons":[{id,name,x,y},...]} OR {"1":{x,y},...}
         let out = {};
         if (!raw) return out;
         if (Array.isArray(raw.beacons)) {
@@ -104,18 +97,15 @@
           });
           return out;
         }
-        // object style
         if (typeof raw === "object") {
-          // detect numeric keys or beacon_N keys
           for (const k of Object.keys(raw)) {
             const v = raw[k];
-            if (v && v.x != null && v.y != null) {
+            if (v && v.x != null && v.y != null)
               out[String(k)] = {
                 x: +v.x,
                 y: +v.y,
                 name: v.name || "beacon_" + k,
               };
-            }
           }
         }
         return out;
@@ -131,10 +121,10 @@
         }
         const xs = ids.map((i) => beacons[i].x);
         const ys = ids.map((i) => beacons[i].y);
-        const minX = Math.min(...xs, board.x);
-        const maxX = Math.max(...xs, board.x);
-        const minY = Math.min(...ys, board.y);
-        const maxY = Math.max(...ys, board.y);
+        const minX = Math.min(...xs, board.x),
+          maxX = Math.max(...xs, board.x);
+        const minY = Math.min(...ys, board.y),
+          maxY = Math.max(...ys, board.y);
         const maxRange = Math.max(
           Math.abs(minX),
           Math.abs(maxX),
@@ -156,7 +146,6 @@
 
       function drawAll() {
         ctx.clearRect(0, 0, cvs.width, cvs.height);
-        // if no beacons => draw axes
         if (Object.keys(beacons).length === 0) {
           ctx.strokeStyle = "#34495e";
           ctx.lineWidth = 1.2;
@@ -172,27 +161,42 @@
           ctx.fillText("Нет маяков", 10, 20);
           return;
         }
-        // grid
+
+        const CELL_SIZE = 40; // крупная сетка
+
+        // grid (тонкая светлая)
         ctx.strokeStyle = "#ecf0f1";
         ctx.lineWidth = 1;
-        let startX = offsetX - Math.floor(offsetX / scale) * scale;
-        for (let x = startX; x < cvs.width; x += scale) {
+        let startX = offsetX % CELL_SIZE;
+        for (let x = startX; x <= cvs.width; x += CELL_SIZE) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x, cvs.height);
           ctx.stroke();
         }
-        let startY = offsetY - Math.floor(offsetY / scale) * scale;
-        for (let y = startY; y < cvs.height; y += scale) {
+        for (let x = startX - CELL_SIZE; x >= 0; x -= CELL_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, cvs.height);
+          ctx.stroke();
+        }
+        let startY = offsetY % CELL_SIZE;
+        for (let y = startY; y <= cvs.height; y += CELL_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(cvs.width, y);
+          ctx.stroke();
+        }
+        for (let y = startY - CELL_SIZE; y >= 0; y -= CELL_SIZE) {
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(cvs.width, y);
           ctx.stroke();
         }
 
-        // axes
+        // axes (жирные и тёмные)
         ctx.strokeStyle = "#34495e";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, offsetY);
         ctx.lineTo(cvs.width, offsetY);
@@ -255,8 +259,7 @@
           const r = await fetch("/api/beacons");
           if (!r.ok) throw new Error("status " + r.status);
           const json = await r.json();
-          const mapped = mapFromApi(json);
-          beacons = mapped;
+          beacons = mapFromApi(json);
           computeTransform();
           drawAll();
           return true;
@@ -266,47 +269,75 @@
         }
       }
 
-      function startRoute() {
+      async function startRoute() {
         if (timer) return;
+        try {
+          const resp = await fetch("/api/start_way", { method: "POST" });
+          if (!resp.ok) {
+            alert("Ошибка запуска маршрута");
+            return;
+          }
+        } catch (err) {
+          console.error(err);
+          return;
+        }
+
+        // Начало нового маршрута
         route = [];
+        board = { x: 0, y: 0 };
+        computeTransform();
+        drawAll(); // сразу обновляем карту
+
         timer = setInterval(async () => {
           try {
-            const r = await fetch("/api/get_positions");
+            const r = await fetch("/api/get_positions_1?test=1");
             const j = await r.json();
-            let pos = null;
             if (j.positions && j.positions.length) {
-              const last = j.positions[j.positions.length - 1];
-              pos = { x: +last.x, y: +last.y };
-            } else if (j.x !== undefined && j.y !== undefined) {
-              pos = { x: +j.x, y: +j.y };
-            }
-            if (pos) {
-              board = pos;
-              route.push({ ...pos });
+              const newPositions = j.positions
+                .slice(route.length)
+                .map((p) => ({ x: +p.x, y: +p.y }));
+              route.push(...newPositions);
+              if (route.length) board = route[route.length - 1];
               computeTransform();
               drawAll();
             }
           } catch (e) {
             console.error("pos fetch error", e);
           }
-        }, 500);
+        }, 2000);
       }
 
-      function stopRoute() {
+      async function stopRoute() {
+        if (!timer) return;
         clearInterval(timer);
         timer = null;
-        alert("Маршрут завершён");
+        try {
+          const resp = await fetch("/api/finish_way", { method: "POST" });
+          if (!resp.ok) {
+            alert("Ошибка завершения маршрута");
+            return;
+          }
+          alert("Маршрут завершён");
+        } catch (err) {
+          console.error(err);
+          alert("Ошибка завершения маршрута");
+        }
       }
-      function clearRoute() {
-        route = [];
-        drawAll();
-      }
+
       function exportRoute() {
         if (!route.length) return alert("Маршрут пуст");
-        const txt =
-          "X\\tY\\n" + route.map((p) => `${p.x}\\t${p.y}`).join("\\n");
+        let txt =
+          "X;Y\n" +
+          route
+            .map(
+              (p) =>
+                `${p.x.toFixed(1).replace(".", ",")};${p.y
+                  .toFixed(1)
+                  .replace(".", ",")}`
+            )
+            .join("\n");
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([txt]));
+        a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain" }));
         a.download = "route.txt";
         a.click();
       }
@@ -315,7 +346,6 @@
 
       (async function init() {
         await fetchBeacons();
-        // auto-refresh beacons every 5s
         setInterval(fetchBeacons, 5000);
       })();
     </script>

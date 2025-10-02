@@ -7,7 +7,16 @@ import pathlib
 
 from app_state import GlobalState, AppStates
 from data import db
+import math
+import time
+from typing import List
+import random
+
+start_time = time.time()
+
 app = FastAPI()
+
+positions: List[dict] = []
 
 # Абсолютный путь к каталогу "static" (src/backend/fastapi_app/static)
 static_path = pathlib.Path(__file__).parent / "static"
@@ -34,12 +43,14 @@ async def delete_route():
 async def start_route():
     global_state.set_state(AppStates.WRITE_WAY)
     db.session.query(db.BoardPosition).delete()
+    print("Start route")
     return {}
 
 
 @app.post("/api/finish_way")
 async def finish_route():
     global_state.set_state(AppStates.WAITING)
+    print("Stoppp route")
     return {}
 
 
@@ -56,6 +67,21 @@ async def get_positions():
         "positions": positions
     }
     return res
+
+@app.get("/api/get_positions_1")
+async def get_positions_1():
+    global positions
+    # добавляем новую случайную точку каждые 2 секунды
+    if not positions:
+        new_pos = {"x": random.uniform(0, 0), "y": random.uniform(0, 0)}
+    else:
+        last = positions[-1]
+        new_pos = {
+            "x": last["x"] + random.uniform(-3, 3),
+            "y": last["y"] + random.uniform(-3, 3),
+        }
+    positions.append(new_pos)
+    return JSONResponse(content={"positions": positions})
 
 @app.get("/api/beacons")
 async def get_beacons():
