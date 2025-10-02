@@ -3,3 +3,4 @@
 **/venv
 **/*_backup.py
 **/__pycache__
+**/reset_command.sh
