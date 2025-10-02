@@ -27,11 +27,13 @@ def json_data_to_station_rssi(data) -> list[rssi_position.StationRssi]:
             pass
     return res
 
+def print_station(station: rssi_position.StationRssi):
+    print(f"{station.name} = {station.rssi}")
 
 def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) -> None:
     global_state.save_last_updated()
-    if global_state.get_state() == AppStates.WAITING:
-        return
+    # if global_state.get_state() == AppStates.WAITING:
+    #     return
     try:
         payload_str: str = msg.payload.decode()
         data = json.loads(payload_str)
@@ -39,7 +41,10 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
     except Exception as e:
         print("Ошибка обработки:", e)
         return 
-    print(stations)
+    
+    for i in stations:
+        if int(i.name.split("_")[1]) <= 4:
+            print_station(i) 
     if len(stations) < 2:
         return
 
