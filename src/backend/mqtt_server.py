@@ -6,8 +6,8 @@ import rssi_position
 from app_state import GlobalState, AppStates
 
 BROKER = "localhost"
-PORT = 1883
-TOPIC = "sensors/data"
+PORT = 22
+TOPIC = b"test/beacons"
 
 global_state = GlobalState()
 

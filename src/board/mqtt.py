@@ -3,8 +3,8 @@ from umqtt.simple import MQTTClient
 import ujson
 
 
-MQTT_BROKER = "broker.hivemq.com"   # публичный брокер
-MQTT_PORT   = 1883
+MQTT_BROKER = "5.35.88.189"   # публичный брокер
+MQTT_PORT   = 22
 CLIENT_ID   = "esp32_micropython"
 TOPIC       = b"test/beacons"
 
