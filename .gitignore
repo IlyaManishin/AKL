@@ -2,3 +2,4 @@
 **/*.bin
 **/venv
 **/*_backup.py
+**/__pycache__

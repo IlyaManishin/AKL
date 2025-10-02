@@ -1,6 +1,8 @@
 from models import BLData, bl_list_to_json
 from umqtt.simple import MQTTClient
 import ujson
+
+
 MQTT_BROKER = "broker.hivemq.com"   # публичный брокер
 MQTT_PORT   = 1883
 CLIENT_ID   = "esp32_micropython"

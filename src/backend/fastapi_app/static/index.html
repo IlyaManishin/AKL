@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Маршрут</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      #controls {
+        text-align: center;
+        padding: 15px;
+        background: #f5f5f5;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+      }
+      .delete {
+        background-color: #d9534f;
+      }
+      .delete:hover {
+        background-color: #c9302c;
+      }
+
+      .start {
+        background-color: #5cb85c;
+      }
+      .start:hover {
+        background-color: #449d44;
+      }
+
+      .finish {
+        background-color: #777;
+      }
+      .finish:hover {
+        background-color: #555;
+      }
+
+      .check {
+        background-color: #337ab7;
+      }
+      .check:hover {
+        background-color: #286090;
+      }
+
+      .add {
+        background-color: #f0ad4e;
+      }
+      .add:hover {
+        background-color: #ec971f;
+      }
+
+      .export {
+        background-color: #9b59b6;
+      }
+      .export:hover {
+        background-color: #8e44ad;
+      }
+
+      #map {
+        width: 100%;
+        height: 90vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <button
+        class="delete"
+        onclick="callApi('/api/delete_route', 'POST'); clearRoute()"
+      >
+        Удалить маршрут
+      </button>
+      <button
+        class="start"
+        onclick="callApi('/api/start_route', 'POST'); drawRoute()"
+      >
+        Начать маршрут
+      </button>
+      <button class="finish" onclick="callApi('/api/finish_route', 'POST')">
+        Завершить маршрут
+      </button>
+      <button class="check" onclick="callApi('/api/check_payment', 'GET')">
+        Проверить плату
+      </button>
+      <button class="add" onclick="enableAddMode()">Добавить маршрут</button>
+      <button class="export" onclick="exportRoute()">Выгрузить маршрут</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      let map = L.map("map").setView([55.751244, 37.618423], 12);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      let routeLayer = null;
+      let routePoints = [];
+      let addMode = false;
+
+      async function callApi(endpoint, method = "POST") {
+        const response = await fetch(endpoint, { method: method });
+        const data = await response.json();
+        console.log(data);
+      }
+
+      function drawRoute() {
+        clearRoute();
+        const points = [
+          [55.751244, 37.618423],
+          [55.765, 37.64],
+          [55.78, 37.65],
+        ];
+        routePoints = points;
+        routeLayer = L.polyline(points, { color: "blue" }).addTo(map);
+        map.fitBounds(routeLayer.getBounds());
+      }
+
+      function clearRoute() {
+        if (routeLayer) {
+          map.removeLayer(routeLayer);
+          routeLayer = null;
+        }
+        routePoints = [];
+      }
+
+      function enableAddMode() {
+        addMode = true;
+        alert(
+          "Кликни на карту, чтобы добавить точки маршрута. Двойной клик завершает ввод."
+        );
+      }
+
+      map.on("click", function (e) {
+        if (!addMode) return;
+        routePoints.push([e.latlng.lat, e.latlng.lng]);
+        if (routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.polyline(routePoints, { color: "red" }).addTo(map);
+      });
+
+      map.on("dblclick", function () {
+        if (addMode) {
+          addMode = false;
+          alert("Маршрут добавлен.");
+        }
+      });
+
+      function exportRoute() {
+        if (routePoints.length === 0) {
+          alert("Маршрут пустой.");
+          return;
+        }
+        const blob = new Blob([JSON.stringify(routePoints, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "route.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    </script>
+  </body>
+</html>
