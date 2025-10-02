@@ -1,6 +1,6 @@
 import csv
 import re
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import pathlib
@@ -53,10 +53,24 @@ async def finish_route():
     print("Stoppp route")
     return {}
 
+@app.post("/api/upload_beacons")
+async def upload_beacons(file: UploadFile = File(...)):
+    """
+    Перезаписывает beacons.txt содержимым загруженного файла.
+    """
+    if not file.filename.endswith(".txt"):
+        return JSONResponse(content={"error": "Неверный формат файла"}, status_code=400)
+
+    content = await file.read()
+    # сохраняем в beacons.txt
+    data_path.write_bytes(content)
+    return {"status": "ok", "message": f"Файл {file.filename} успешно загружен"}
+
 
 @app.get("/api/check_board")
 async def check_payment():
     return {"res": global_state.is_board_turn_on()}
+
 
 
 @app.get("/api/get_positions")
@@ -77,8 +91,8 @@ async def get_positions_1():
     else:
         last = positions[-1]
         new_pos = {
-            "x": last["x"] + random.uniform(-3, 3),
-            "y": last["y"] + random.uniform(-3, 3),
+            "x": last["x"] + random.uniform(-15, 15),
+            "y": last["y"] + random.uniform(-15, 15),
         }
     positions.append(new_pos)
     return JSONResponse(content={"positions": positions})
