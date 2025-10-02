@@ -44,7 +44,7 @@ def rssi_to_distance(rssi: float) -> float:
     """Переводит RSSI (дБм) в расстояние (м)"""
     return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
-def get_board_pos(data: list[StationRssi]) -> Position:
+def get_board_pos1(data: list[StationRssi]) -> Position:
     if len(data) < 3:
         return
     
@@ -64,42 +64,54 @@ def get_board_pos(data: list[StationRssi]) -> Position:
         l = math.hypot(dx, dy)
         return (dx/l, dy/l) if l != 0 else (1, 0)
 
-    def point_on_circle(center: Position, radius: float, toward: Position, invert=False) -> Position:
+    def point_on_circle(center: Position, radius: float, toward: Position) -> Position:
         ux, uy = unit_vector(center, toward)
-        if invert:  # берем противоположную сторону окружности
-            ux, uy = -ux, -uy
         return Position(center.x + ux*radius, center.y + uy*radius)
 
-    def pull_error(p: Position, beacon: Position, dist: float) -> float:
+    def pull_strength(p: Position, beacon: Position, dist: float) -> float:
         actual = math.hypot(p.x - beacon.x, p.y - beacon.y)
-        return abs(actual - dist)
+        err = abs(actual - dist)
+        return 1.0 / (err + 1e-3)
 
-    # Кандидаты: нормальные и инвертированные
-    candidates = []
-    for inv2 in (False, True):
-        for inv3 in (False, True):
-            p2 = point_on_circle(c1, r1, c2, invert=inv2)
-            p3 = point_on_circle(c1, r1, c3, invert=inv3)
+    p2 = point_on_circle(c1, r1, c2)
+    p3 = point_on_circle(c1, r1, c3)
 
-            e2 = pull_error(p2, c2, d2)
-            e3 = pull_error(p3, c3, d3)
+    s2_strength = pull_strength(p2, c2, d2)
+    s3_strength = pull_strength(p3, c3, d3)
 
-            # средневзвешенная точка
-            w2 = 1 / (e2 + 1e-3)
-            w3 = 1 / (e3 + 1e-3)
-            vx = (p2.x * w2 + p3.x * w3) / (w2 + w3)
-            vy = (p2.y * w2 + p3.y * w3) / (w2 + w3)
+    vx = (p2.x * s2_strength + p3.x * s3_strength) / \
+        (s2_strength + s3_strength)
+    vy = (p2.y * s2_strength + p3.y * s3_strength) / \
+        (s2_strength + s3_strength)
 
-            dx, dy = vx - c1.x, vy - c1.y
-            l = math.hypot(dx, dy)
-            if l == 0:
-                pos = p2
-            else:
-                pos = Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
+    dx, dy = vx - c1.x, vy - c1.y
+    l = math.hypot(dx, dy)
+    if l == 0:
+        return p2
+    return Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
 
-            total_error = pull_error(pos, c2, d2) + pull_error(pos, c3, d3)
-            candidates.append((total_error, pos))
+def get_board_pos(data: list[StationRssi]) -> Position:
+    if len(data) < 3:
+        return
 
-    # Выбираем кандидата с минимальной суммарной ошибкой
-    best_err, best_pos = min(candidates, key=lambda x: x[0])
-    return best_pos
+    stations_pos = load_stations()
+    data_sorted = sorted(data, key=lambda s: s.rssi, reverse=True)
+
+    best_three = data_sorted[:3]
+
+    weighted_sum_x = 0.0
+    weighted_sum_y = 0.0
+    total_weight = 0.0
+
+    for station in best_three:
+        pos = stations_pos[station.name]
+        dist = rssi_to_distance(station.rssi)
+        weight = 1.0 / (dist + 1e-3)  # избегаем деления на ноль
+        weighted_sum_x += pos.x * weight
+        weighted_sum_y += pos.y * weight
+        total_weight += weight
+
+    avg_x = weighted_sum_x / total_weight
+    avg_y = weighted_sum_y / total_weight
+
+    return Position(avg_x, avg_y)
