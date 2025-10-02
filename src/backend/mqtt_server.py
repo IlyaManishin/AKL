@@ -43,8 +43,7 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         return 
     
     for i in stations:
-        if int(i.name.split("_")[1]) <= 4:
-            print_station(i) 
+        print_station(i) 
     if len(stations) < 2:
         return
     pos = rssi_position.get_board_pos(stations)
