@@ -76,7 +76,7 @@
     <div id="controls">
       <button
         class="delete"
-        onclick="callApi('/api/delete_route', 'POST'); clearRoute()"
+        onclick="callApi('/api/delete_last_way', 'POST'); clearRoute()"
       >
         Удалить маршрут
       </button>
@@ -86,10 +86,10 @@
       >
         Начать маршрут
       </button>
-      <button class="finish" onclick="callApi('/api/finish_route', 'POST')">
+      <button class="finish" onclick="callApi('/api/finish_way', 'POST')">
         Завершить маршрут
       </button>
-      <button class="check" onclick="callApi('/api/check_payment', 'GET')">
+      <button class="check" onclick="callApi('/api/check_board', 'GET')">
         Проверить плату
       </button>
       <button class="add" onclick="enableAddMode()">Добавить маршрут</button>

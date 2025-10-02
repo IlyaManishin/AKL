@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import pathlib
 
+from app_state import GlobalState, AppStates
+from backend.data import db
 app = FastAPI()
 
 # Абсолютный путь к каталогу "static" (src/backend/fastapi_app/static)
@@ -10,6 +12,7 @@ static_path = pathlib.Path(__file__).parent / "static"
 
 # Подключаем статические файлы
 app.mount("/static", StaticFiles(directory=static_path), name="static")
+global_state = GlobalState()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -18,22 +21,25 @@ async def root():
     return index_file.read_text(encoding="utf-8")
 
 
-# --- API заглушки ---
-@app.post("/api/delete_route")
+@app.post("/api/delete_last_way")
 async def delete_route():
-    return {"status": "delete_route placeholder"}
+    db.session.query(db.BoardPosition).delete()
+    return {}
 
 
-@app.post("/api/start_route")
+@app.post("/api/start_way")
 async def start_route():
-    return {"status": "start_route placeholder"}
+    global_state.set_state(AppStates.WRITE_WAY)
+    db.session.query(db.BoardPosition).delete()
+    return {}
 
 
-@app.post("/api/finish_route")
+@app.post("/api/finish_way")
 async def finish_route():
-    return {"status": "finish_route placeholder"}
+    global_state.set_state(AppStates.WAITING)
+    return {}
 
 
-@app.get("/api/check_payment")
+@app.get("/api/check_board")
 async def check_payment():
-    return {"status": "check_payment placeholder"}
+    return {"res": global_state.is_board_turn_on()}
