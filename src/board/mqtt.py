@@ -4,9 +4,9 @@ import ujson
 
 
 MQTT_BROKER = "5.35.88.189"   # публичный брокер
-MQTT_PORT   = 22
+MQTT_PORT   = 1883
 CLIENT_ID   = "esp32_micropython"
-TOPIC       = b"test/beacons"
+TOPIC       = "test/beacons"
 
 def mqtt_send_bldata(data: list[BLData]):
     json_res = bl_list_to_json(data)
