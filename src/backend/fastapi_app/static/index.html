@@ -2,177 +2,257 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <title>Маршрут</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <title>Система локализации платы</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
         margin: 0;
-        padding: 0;
+        font-family: Segoe UI, sans-serif;
+        background: #f4f6f9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
-      #controls {
+      .map {
+        margin-top: 20px;
+        background: #fff;
+        border: 2px solid #ddd;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 16px;
+      }
+      .map__controls {
         text-align: center;
-        padding: 15px;
-        background: #f5f5f5;
+        margin-bottom: 12px;
       }
-      button {
-        padding: 10px 20px;
-        margin: 5px;
-        font-size: 14px;
-        cursor: pointer;
+      .map__button {
+        margin: 4px;
+        padding: 8px 14px;
         border: none;
         border-radius: 6px;
         color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
       }
-      .delete {
-        background-color: #d9534f;
+      .map__button_start {
+        background: #27ae60;
       }
-      .delete:hover {
-        background-color: #c9302c;
+      .map__button_start:hover {
+        background: #219150;
       }
-
-      .start {
-        background-color: #5cb85c;
+      .map__button_finish {
+        background: #7f8c8d;
       }
-      .start:hover {
-        background-color: #449d44;
+      .map__button_finish:hover {
+        background: #606c6d;
       }
-
-      .finish {
-        background-color: #777;
+      .map__button_export {
+        background: #9b59b6;
       }
-      .finish:hover {
-        background-color: #555;
+      .map__button_export:hover {
+        background: #8e44ad;
       }
-
-      .check {
-        background-color: #337ab7;
+      .map__button_delete {
+        background: #e74c3c;
       }
-      .check:hover {
-        background-color: #286090;
+      .map__button_delete:hover {
+        background: #c0392b;
       }
-
-      .add {
-        background-color: #f0ad4e;
+      .map__container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
-      .add:hover {
-        background-color: #ec971f;
-      }
-
-      .export {
-        background-color: #9b59b6;
-      }
-      .export:hover {
-        background-color: #8e44ad;
-      }
-
-      #map {
-        width: 100%;
-        height: 90vh;
+      .map__canvas {
+        background: #fff;
+        border: 1px solid #ccc;
       }
     </style>
   </head>
   <body>
-    <div id="controls">
-      <button
-        class="delete"
-        onclick="callApi('/api/delete_last_way', 'POST'); clearRoute()"
-      >
-        Удалить маршрут
-      </button>
-      <button
-        class="start"
-        onclick="callApi('/api/start_route', 'POST'); drawRoute()"
-      >
-        Начать маршрут
-      </button>
-      <button class="finish" onclick="callApi('/api/finish_way', 'POST')">
-        Завершить маршрут
-      </button>
-      <button class="check" onclick="callApi('/api/check_board', 'GET')">
-        Проверить плату
-      </button>
-      <button class="add" onclick="enableAddMode()">Добавить маршрут</button>
-      <button class="export" onclick="exportRoute()">Выгрузить маршрут</button>
+    <div class="map">
+      <div class="map__controls">
+        <button class="map__button map__button_start" onclick="startRoute()">
+          Начать маршрут
+        </button>
+        <button class="map__button map__button_finish" onclick="stopRoute()">
+          Завершить маршрут
+        </button>
+        <button class="map__button map__button_export" onclick="exportRoute()">
+          Выгрузить (txt)
+        </button>
+        <button class="map__button map__button_delete" onclick="clearRoute()">
+          Удалить маршрут
+        </button>
+      </div>
+      <div class="map__container">
+        <canvas
+          class="map__canvas"
+          id="mapCanvas"
+          width="700"
+          height="700"
+        ></canvas>
+      </div>
     </div>
 
-    <div id="map"></div>
-
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-      let map = L.map("map").setView([55.751244, 37.618423], 12);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-      }).addTo(map);
+      const cvs = document.getElementById("mapCanvas"),
+        ctx = cvs.getContext("2d");
 
-      let routeLayer = null;
-      let routePoints = [];
-      let addMode = false;
+      // --- Маяки ---
+      const beacons = {
+        1: { x: 3, y: -2.4 },
+        2: { x: -2.4, y: -0.6 },
+        3: { x: 1.8, y: 9 },
+        4: { x: 4.8, y: 18.6 },
+        5: { x: -1.8, y: 26.4 },
+        6: { x: -1.8, y: 34.2 },
+        7: { x: 7.8, y: 34.2 },
+        8: { x: -1.8, y: 40.8 },
+      };
 
-      async function callApi(endpoint, method = "POST") {
-        const response = await fetch(endpoint, { method: method });
-        const data = await response.json();
-        console.log(data);
-      }
+      let board = { x: 0, y: 0 },
+        route = [],
+        timer = null;
+      let scale = 1,
+        offsetX = 0,
+        offsetY = 0;
 
-      function drawRoute() {
-        clearRoute();
-        const points = [
-          [55.751244, 37.618423],
-          [55.765, 37.64],
-          [55.78, 37.65],
-        ];
-        routePoints = points;
-        routeLayer = L.polyline(points, { color: "blue" }).addTo(map);
-        map.fitBounds(routeLayer.getBounds());
-      }
+      // --- Масштаб ---
+      function computeTransform() {
+        const xs = Object.values(beacons).map((p) => p.x);
+        const ys = Object.values(beacons).map((p) => p.y);
 
-      function clearRoute() {
-        if (routeLayer) {
-          map.removeLayer(routeLayer);
-          routeLayer = null;
-        }
-        routePoints = [];
-      }
+        const minX = Math.min(...xs),
+          maxX = Math.max(...xs);
+        const minY = Math.min(...ys),
+          maxY = Math.max(...ys);
 
-      function enableAddMode() {
-        addMode = true;
-        alert(
-          "Кликни на карту, чтобы добавить точки маршрута. Двойной клик завершает ввод."
+        // расстояния до (0,0)
+        const maxRange = Math.max(
+          Math.abs(minX),
+          Math.abs(maxX),
+          Math.abs(minY),
+          Math.abs(maxY)
         );
+        const padding = 40;
+
+        scale = (cvs.width / 2 - padding) / maxRange;
+
+        // смещение (центр карты = (0,0))
+        offsetX = cvs.width / 2;
+        offsetY = cvs.height / 2;
       }
 
-      map.on("click", function (e) {
-        if (!addMode) return;
-        routePoints.push([e.latlng.lat, e.latlng.lng]);
-        if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.polyline(routePoints, { color: "red" }).addTo(map);
-      });
+      // --- Перевод ---
+      function toCanvas(p) {
+        return { x: p.x * scale + offsetX, y: -p.y * scale + offsetY };
+      }
 
-      map.on("dblclick", function () {
-        if (addMode) {
-          addMode = false;
-          alert("Маршрут добавлен.");
+      // --- Отрисовка ---
+      function drawAll() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+        // сетка
+        ctx.strokeStyle = "#ecf0f1";
+        for (let x = offsetX % scale; x < cvs.width; x += scale) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, cvs.height);
+          ctx.stroke();
         }
-      });
+        for (let y = offsetY % scale; y < cvs.height; y += scale) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(cvs.width, y);
+          ctx.stroke();
+        }
 
+        // оси (всегда через (0,0))
+        ctx.strokeStyle = "#34495e";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, offsetY);
+        ctx.lineTo(cvs.width, offsetY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(offsetX, 0);
+        ctx.lineTo(offsetX, cvs.height);
+        ctx.stroke();
+        ctx.fillStyle = "#34495e";
+        ctx.fillText("X", cvs.width - 20, offsetY - 5);
+        ctx.fillText("Y", offsetX + 10, 15);
+
+        // маяки
+        for (const [id, p] of Object.entries(beacons)) {
+          let c = toCanvas(p);
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 12, 0, 2 * Math.PI);
+          ctx.fillStyle = "#f39c12";
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 12px Segoe UI";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(id, c.x, c.y);
+        }
+
+        // маршрут
+        if (route.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(...Object.values(toCanvas(route[0])));
+          route
+            .slice(1)
+            .forEach((p) => ctx.lineTo(...Object.values(toCanvas(p))));
+          ctx.strokeStyle = "#2980b9";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // плата (центр)
+        let c = toCanvas(board);
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = "#2980b9";
+        ctx.fill();
+      }
+
+      // --- Управление ---
+      function startRoute() {
+        if (timer) return;
+        route = [];
+        timer = setInterval(async () => {
+          try {
+            let pos = await (await fetch("/api/position")).json();
+            board = pos;
+            route.push({ ...pos });
+            drawAll();
+          } catch (e) {
+            console.error("Ошибка:", e);
+          }
+        }, 500);
+      }
+      function stopRoute() {
+        clearInterval(timer);
+        timer = null;
+        alert("Маршрут завершён");
+      }
+      function clearRoute() {
+        route = [];
+        drawAll();
+      }
       function exportRoute() {
-        if (routePoints.length === 0) {
-          alert("Маршрут пустой.");
-          return;
-        }
-        const blob = new Blob([JSON.stringify(routePoints, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
+        if (!route.length) return alert("Маршрут пуст");
+        const txt = "X\tY\n" + route.map((p) => `${p.x}\t${p.y}`).join("\n");
         const a = document.createElement("a");
-        a.href = url;
-        a.download = "route.json";
-        document.body.appendChild(a);
+        a.href = URL.createObjectURL(new Blob([txt]));
+        a.download = "route.txt";
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
       }
+
+      // --- init ---
+      computeTransform();
+      drawAll();
     </script>
   </body>
 </html>
