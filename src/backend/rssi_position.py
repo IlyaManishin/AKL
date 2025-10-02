@@ -64,42 +64,28 @@ def get_board_pos(data: list[StationRssi]) -> Position:
         l = math.hypot(dx, dy)
         return (dx/l, dy/l) if l != 0 else (1, 0)
 
-    def point_on_circle(center: Position, radius: float, toward: Position, invert=False) -> Position:
+    def point_on_circle(center: Position, radius: float, toward: Position) -> Position:
         ux, uy = unit_vector(center, toward)
-        if invert:  # берем противоположную сторону окружности
-            ux, uy = -ux, -uy
         return Position(center.x + ux*radius, center.y + uy*radius)
 
-    def pull_error(p: Position, beacon: Position, dist: float) -> float:
+    def pull_strength(p: Position, beacon: Position, dist: float) -> float:
         actual = math.hypot(p.x - beacon.x, p.y - beacon.y)
-        return abs(actual - dist)
+        err = abs(actual - dist)
+        return 1.0 / (err + 1e-3)
 
-    # Кандидаты: нормальные и инвертированные
-    candidates = []
-    for inv2 in (False, True):
-        for inv3 in (False, True):
-            p2 = point_on_circle(c1, r1, c2, invert=inv2)
-            p3 = point_on_circle(c1, r1, c3, invert=inv3)
+    p2 = point_on_circle(c1, r1, c2)
+    p3 = point_on_circle(c1, r1, c3)
 
-            e2 = pull_error(p2, c2, d2)
-            e3 = pull_error(p3, c3, d3)
+    s2_strength = pull_strength(p2, c2, d2)
+    s3_strength = pull_strength(p3, c3, d3)
 
-            # средневзвешенная точка
-            w2 = 1 / (e2 + 1e-3)
-            w3 = 1 / (e3 + 1e-3)
-            vx = (p2.x * w2 + p3.x * w3) / (w2 + w3)
-            vy = (p2.y * w2 + p3.y * w3) / (w2 + w3)
+    vx = (p2.x * s2_strength + p3.x * s3_strength) / \
+        (s2_strength + s3_strength)
+    vy = (p2.y * s2_strength + p3.y * s3_strength) / \
+        (s2_strength + s3_strength)
 
-            dx, dy = vx - c1.x, vy - c1.y
-            l = math.hypot(dx, dy)
-            if l == 0:
-                pos = p2
-            else:
-                pos = Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
-
-            total_error = pull_error(pos, c2, d2) + pull_error(pos, c3, d3)
-            candidates.append((total_error, pos))
-
-    # Выбираем кандидата с минимальной суммарной ошибкой
-    best_err, best_pos = min(candidates, key=lambda x: x[0])
-    return best_pos
+    dx, dy = vx - c1.x, vy - c1.y
+    l = math.hypot(dx, dy)
+    if l == 0:
+        return p2
+    return Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
