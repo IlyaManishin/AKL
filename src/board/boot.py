@@ -100,4 +100,10 @@ while True:
 
 
 
-
+finally:
+    # Корректно завершаем работу
+    ble.active(False)
+    mqtt.mqtt_disconnect()
+    print("Запись маршрута завершена")
+    print("BLE отключен")
+    print("MQTT отключен")
