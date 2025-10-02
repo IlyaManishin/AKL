@@ -6,8 +6,8 @@ import rssi_position
 from app_state import GlobalState, AppStates
 
 BROKER = "localhost"
-PORT = 22
-TOPIC = b"test/beacons"
+PORT = 1883
+TOPIC = "test/beacons"
 
 global_state = GlobalState()
 
@@ -38,6 +38,7 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         stations = json_data_to_station_rssi(data)
     except Exception as e:
         print("Ошибка обработки:", e)
+        return 
     print(stations)
     if len(stations) < 2:
         return

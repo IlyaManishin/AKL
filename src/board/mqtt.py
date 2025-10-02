@@ -4,7 +4,7 @@ import ujson
 MQTT_BROKER = "5.35.88.189"   # публичный брокер
 MQTT_PORT   = 1883
 CLIENT_ID   = "esp32_micropython"
-TOPIC       = b"test/beacons"
+TOPIC       = "test/beacons"
 
 client = MQTTClient(CLIENT_ID, MQTT_BROKER, port=MQTT_PORT)
 
