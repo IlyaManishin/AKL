@@ -5,11 +5,11 @@ import network
 from models import BLData
 import mqtt
 
-SCAN_MS = 30  
-ITERATIONS = 20  
+SCAN_MS = 100  
+ITERATIONS = 10  
 
-SSID = "xxxx"       
-PASSWORD = "xxxx "  
+SSID = "xxx"       
+PASSWORD = "xxx"  
 
 def connect_wifi():
     wlan = network.WLAN(network.STA_IF)  
@@ -26,9 +26,9 @@ def connect_wifi():
             pass
 
     if wlan.isconnected():
-        print("Успешно!")
+        print("WIFI: Успешно!")
     else:
-        raise Exception("Ошибка подключения")
+        raise Exception("Ошибка подключения WIFI")
         
 def decode_name(adv):
     data = bytes(adv)
@@ -87,12 +87,16 @@ def find_stations():
 ble = bluetooth.BLE()
 ble.active(True)
 connect_wifi()
+mqtt.mqtt_connect()
 
 while True:
     res: list[BLData] = find_stations()
     res.sort(key=lambda i: i.get_index())
-
-    
+    #print(res)
+    for i in res:
+        if i.get_index() == 3:
+            print(i)
+            
     mqtt.mqtt_send_bldata(res)
 
 

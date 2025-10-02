@@ -4,7 +4,7 @@ class BLData():
     def __init__(self, name: str, rssi: int):
         self.name = name
         self.rssi = rssi
-        self.index = name.split("_")[1]
+        self.index = int(name.split("_")[1])
         
     def __repr__(self):
         return f"{self.name}, {self.rssi}"
