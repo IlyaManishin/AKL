@@ -12,7 +12,7 @@ class GlobalState():
     _last_board_updated = datetime.strptime("1990:01:01", r"%Y:%m:%d")
     
     def __new__(cls):
-        if cls._self != None:
+        if cls._self == None:
             cls._self = super().__new__(cls)
         return cls._self
     
