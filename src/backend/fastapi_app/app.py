@@ -43,3 +43,13 @@ async def finish_route():
 @app.get("/api/check_board")
 async def check_payment():
     return {"res": global_state.is_board_turn_on()}
+
+
+@app.get("/api/get_positions")
+async def get_positions():
+    pos_objs = db.session.query(db.BoardPosition).all()
+    positions = [i.to_dict() for i in pos_objs]
+    res = {
+        "positions": positions
+    }
+    return res
