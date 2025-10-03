@@ -578,7 +578,7 @@
         drawAll();
         timer = setInterval(async () => {
           try {
-            const r = await fetch("/api/get_positions_1?test=1");
+            const r = await fetch("/api/get_positions");
             const j = await r.json();
             if (j.positions && j.positions.length) {
               const newPos = j.positions
