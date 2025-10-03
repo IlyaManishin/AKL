@@ -2,7 +2,7 @@ import os
 import csv
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict
+from typing import Optional, List
 
 import numpy as np
 
@@ -27,10 +27,10 @@ class StationRssi:
 # -----------------------------
 # constants
 # -----------------------------
-RSSI0: Dict[str, float] = {}
-N: Dict[str, float] = {}
-SIGMA_RSSI: Dict[str, float] = {}
-BEACONS: Dict[str, Tuple[float, float]] = {}
+RSSI0 = {}
+N = {}
+SIGMA_RSSI = {}
+BEACONS = {}
 
 # -----------------------------
 # file/stations
@@ -38,8 +38,8 @@ BEACONS: Dict[str, Tuple[float, float]] = {}
 def check_stations_path() -> bool:
     return os.path.exists(STATIONS_PATH)
 
-def load_stations() -> Dict[str, Position]:
-    stations: Dict[str, Position] = {}
+def load_stations() -> dict[str, Position]:
+    stations: dict[str, Position] = {}
     if not check_stations_path():
         return stations
     with open(STATIONS_PATH, newline="", encoding="utf-8") as csvfile:
@@ -68,7 +68,7 @@ def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
 # -----------------------------
 # robust WLS
 # -----------------------------
-def robust_wls(rssi_dict: Dict[str, float]) -> Tuple[Optional[Position], Optional[np.ndarray]]:
+def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optional[np.ndarray]]:
     stations_pos = load_stations()
     beacons = []
     dists = []
@@ -149,7 +149,6 @@ class EKF:
         self.dt = dt
         self.x = np.zeros((4, 1))
         self.P = np.eye(4) * 100.0
-
         self.Q = np.diag([0.1, 0.1, 1.0, 1.0])
         self.H = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0]])
@@ -166,7 +165,7 @@ class EKF:
         self.x = F @ self.x
         self.P = F @ self.P @ F.T + self.Q
 
-    def update(self, z: np.ndarray, R: Optional[np.ndarray] = None):
+    def update(self, z: np.ndarray, R: np.ndarray = None):
         if R is not None:
             self.R = R
         y = z.reshape(2, 1) - self.H @ self.x
@@ -175,21 +174,32 @@ class EKF:
         self.x = self.x + K @ y
         self.P = (np.eye(4) - K @ self.H) @ self.P
 
-    def get_state(self) -> Tuple[float, float]:
+    def get_state(self) -> tuple[float, float]:
         return float(self.x[0, 0]), float(self.x[1, 0])
 
-# -----------------------------
-# global EKF instance
-# -----------------------------
 ekf = EKF(dt=0.1)
 
 # -----------------------------
-# locate function
+# locate
 # -----------------------------
-def locate_from_rssi(rssi_dict: Dict[str, float]) -> Tuple[float, float]:
+def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
     ekf.predict()
     pos, cov = robust_wls(rssi_dict)
     if pos is not None:
         R = cov if cov is not None else np.eye(2) * 5.0
         ekf.update(np.array([pos.x, pos.y]), R=R)
     return ekf.get_state()
+
+# -----------------------------
+# get_board_pos аналог
+# -----------------------------
+def get_board_pos(data: List[StationRssi]) -> Optional[Position]:
+    if len(data) < 3:
+        return None
+
+    rssi_dict = {s.name: s.rssi for s in data}
+    x, y = locate_from_rssi(rssi_dict)
+    return Position(x, y)
+
+def get_board_pos1(data: List[StationRssi]) -> Optional[Position]:
+    return get_board_pos(data)
