@@ -12,8 +12,6 @@ large = timedelta(days=1)
 
 
 class LastPoints():
-    def __init__(self):
-        self.last_saved = None
 
     def get_last_saved_delta(self):
         if self.last_saved == None:
@@ -22,6 +20,8 @@ class LastPoints():
 
     def get_last_point(self):
         db_pos = db.get_last_pos()
+        if not db_pos: 
+            return None
         pos = rssi_position.Position(db_pos.x, db_pos.y)
         return pos
 
