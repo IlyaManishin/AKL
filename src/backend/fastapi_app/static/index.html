@@ -219,7 +219,6 @@
           class="map__button map__button_settings"
           onclick="openSettings()"
         >
-          <!-- Иконка шестерёнки в SVG -->
           <svg
             width="20"
             height="20"
@@ -317,7 +316,6 @@
             const lines = text.split(/\r?\n/).filter((l) => l.trim());
             const out = {};
             for (let i = 1; i < lines.length; i++) {
-              // пропускаем заголовок
               const parts = lines[i].split(";");
               if (parts.length >= 2) {
                 const x = parseFloat(parts[0].replace(",", "."));
@@ -337,7 +335,6 @@
         const theme = document.getElementById("themeSelect").value;
         let themeChanged = false;
 
-        // --- Применяем тему ---
         if (theme === "light" && document.body.classList.contains("dark")) {
           document.body.classList.remove("dark");
           themeChanged = true;
@@ -360,42 +357,21 @@
           }
         }
 
-        // Показ toast при смене темы
         if (themeChanged) showToast("Тема успешно применена", "info");
 
-        // --- Локальная загрузка маяков ---
         const fileInput = document.getElementById("beaconFile");
         if (fileInput.files.length) {
           const file = fileInput.files[0];
-          const reader = new FileReader();
-
-          reader.onload = (e) => {
-            const text = e.target.result;
-            const lines = text.split(/\r?\n/).filter((l) => l.trim());
-            const out = {};
-            for (let i = 1; i < lines.length; i++) {
-              // пропускаем заголовок
-              const parts = lines[i].split(";");
-              if (parts.length >= 2) {
-                const x = parseFloat(parts[0].replace(",", "."));
-                const y = parseFloat(parts[1].replace(",", "."));
-                const name = parts[2]?.trim() || `beacon_${i}`;
-                if (!isNaN(x) && !isNaN(y)) out[i] = { x, y, name };
-              }
-            }
-            beacons = out;
-            board = { x: 0, y: 0 };
-            computeTransform();
-            drawAll();
-            showToast("Файл маяков успешно загружен", "success");
-            fileInput.value = ""; // Очищаем поле после загрузки
-          };
-
-          reader.onerror = () => {
-            showToast("Ошибка чтения файла маяков", "error");
-          };
-
-          reader.readAsText(file);
+          loadBeaconsFromFile(file)
+            .then((loaded) => {
+              beacons = loaded;
+              board = { x: 0, y: 0 };
+              computeTransform();
+              drawAll();
+              showToast("Файл маяков успешно загружен", "success");
+              fileInput.value = "";
+            })
+            .catch(() => showToast("Ошибка чтения файла маяков", "error"));
         }
 
         closeSettings();
@@ -431,19 +407,18 @@
 
       function computeTransform() {
         const ids = Object.keys(beacons);
-        if (ids.length === 0) {
+        if (!ids.length) {
           scale = 20;
           offsetX = cvs.width / 2;
           offsetY = cvs.height / 2;
           return;
         }
 
-        // Находим минимальные и максимальные значения относительно платы
         const xs = ids.map((i) => beacons[i].x - board.x),
           ys = ids.map((i) => beacons[i].y - board.y);
         const minX = Math.min(...xs),
-          maxX = Math.max(...xs);
-        const minY = Math.min(...ys),
+          maxX = Math.max(...xs),
+          minY = Math.min(...ys),
           maxY = Math.max(...ys);
 
         const maxRange = Math.max(
@@ -471,7 +446,8 @@
 
       function drawAll() {
         ctx.clearRect(0, 0, cvs.width, cvs.height);
-        if (Object.keys(beacons).length === 0) {
+
+        if (!Object.keys(beacons).length) {
           ctx.strokeStyle = "#34495e";
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -482,15 +458,17 @@
           ctx.moveTo(offsetX, 0);
           ctx.lineTo(offsetX, cvs.height);
           ctx.stroke();
-
           ctx.fillStyle = "#34495e";
           ctx.fillText("Нет маяков", 10, 20);
           return;
         }
+
         const CELL_SIZE = 40;
         ctx.strokeStyle = "#ecf0f1";
         ctx.lineWidth = 1;
-        let startX = offsetX % CELL_SIZE;
+        const startX = offsetX % CELL_SIZE;
+        const startY = offsetY % CELL_SIZE;
+
         for (let x = startX; x <= cvs.width; x += CELL_SIZE) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
@@ -503,7 +481,6 @@
           ctx.lineTo(x, cvs.height);
           ctx.stroke();
         }
-        let startY = offsetY % CELL_SIZE;
         for (let y = startY; y <= cvs.height; y += CELL_SIZE) {
           ctx.beginPath();
           ctx.moveTo(0, y);
@@ -516,6 +493,7 @@
           ctx.lineTo(cvs.width, y);
           ctx.stroke();
         }
+
         ctx.strokeStyle = "#34495e";
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -529,9 +507,11 @@
         ctx.fillStyle = "#34495e";
         ctx.fillText("X", cvs.width - 20, offsetY - 5);
         ctx.fillText("Y", offsetX + 10, 15);
+
         ctx.font = "bold 12px Segoe UI";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+
         for (const id of Object.keys(beacons)) {
           const b = beacons[id],
             c = toCanvas(b);
@@ -545,6 +525,7 @@
           ctx.fillStyle = "#fff";
           ctx.fillText(id, c.x, c.y);
         }
+
         if (route.length > 1) {
           ctx.beginPath();
           const f = toCanvas(route[0]);
@@ -557,6 +538,7 @@
           ctx.lineWidth = 2;
           ctx.stroke();
         }
+
         const cb = toCanvas(board);
         ctx.beginPath();
         ctx.arc(cb.x, cb.y, 10, 0, 2 * Math.PI);
@@ -586,18 +568,13 @@
 
       async function startRoute() {
         if (timer) return;
-
         document.getElementById("errorBox").textContent = "";
 
         try {
           const resp = await fetch("/api/check_board");
           if (!resp.ok) throw new Error("status " + resp.status);
           const ok = await resp.json();
-
-          if (!ok) {
-            throw new Error("status " + resp.status);
-          }
-          if (ok.res === false) {
+          if (!ok || ok.res === false) {
             document.getElementById("errorBox").textContent =
               "Ошибка: плата не подключена.";
             return;
@@ -619,10 +596,12 @@
           console.error(err);
           return;
         }
+
         route = [];
         board = { x: 0, y: 0 };
         computeTransform();
         drawAll();
+
         timer = setInterval(async () => {
           try {
             const r = await fetch("/api/get_positions");
@@ -661,8 +640,7 @@
 
       function exportRoute() {
         if (!route.length) return showToast("Маршрут пуст", "info");
-
-        let txt =
+        const txt =
           "X;Y\n" +
           route
             .map(
@@ -672,13 +650,11 @@
                   .replace(".", ",")}`
             )
             .join("\n");
-
         const a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain" }));
         a.download = "route.txt";
         a.click();
-
-        showToast("Маршрут успешно выгружен", "success"); // ✅ Добавляем тоастер
+        showToast("Маршрут успешно выгружен", "success");
       }
 
       (async function init() {

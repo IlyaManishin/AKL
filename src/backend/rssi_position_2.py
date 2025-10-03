@@ -6,6 +6,9 @@ from typing import Optional, List
 
 import numpy as np
 
+# -----------------------------
+# paths
+# -----------------------------
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 STATIONS_PATH = os.path.join(CUR_DIR, "data", "beacons.txt")
 
@@ -190,16 +193,9 @@ def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
         ekf.update(np.array([pos.x, pos.y]), R=R)
     return ekf.get_state()
 
-# -----------------------------
-# get_board_pos аналог
-# -----------------------------
 def get_board_pos(data: List[StationRssi]) -> Optional[Position]:
     if len(data) < 3:
         return None
-
     rssi_dict = {s.name: s.rssi for s in data}
     x, y = locate_from_rssi(rssi_dict)
     return Position(x, y)
-
-def get_board_pos1(data: List[StationRssi]) -> Optional[Position]:
-    return get_board_pos(data)
