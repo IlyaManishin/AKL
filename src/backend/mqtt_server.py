@@ -80,9 +80,9 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         print("Ошибка обработки:", e)
         return
 
-    stations.sort(key=lambda i: i.rssi > - 70)
-    if len(stations) < 3:
-        return
+    # stations.sort(key=lambda i: i.rssi > - 70)
+    # if len(stations) < 3:
+    #     return
     pos = rssi_position.get_board_pos(stations)
     # if not is_valid_pos(pos):
     #     return
