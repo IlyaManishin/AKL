@@ -309,11 +309,35 @@
         setTimeout(() => t.remove(), duration);
       }
 
+      async function loadBeaconsFromFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/).filter((l) => l.trim());
+            const out = {};
+            for (let i = 1; i < lines.length; i++) {
+              // пропускаем заголовок
+              const parts = lines[i].split(";");
+              if (parts.length >= 2) {
+                const x = parseFloat(parts[0].replace(",", "."));
+                const y = parseFloat(parts[1].replace(",", "."));
+                const name = parts[2]?.trim() || `beacon_${i}`;
+                if (!isNaN(x) && !isNaN(y)) out[i] = { x, y, name };
+              }
+            }
+            resolve(out);
+          };
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+
       function applySettings() {
         const theme = document.getElementById("themeSelect").value;
         let themeChanged = false;
 
-        // Применяем тему
+        // --- Применяем тему ---
         if (theme === "light" && document.body.classList.contains("dark")) {
           document.body.classList.remove("dark");
           themeChanged = true;
@@ -339,25 +363,39 @@
         // Показ toast при смене темы
         if (themeChanged) showToast("Тема успешно применена", "info");
 
-        // Загружаем файл маяков только если выбран
+        // --- Локальная загрузка маяков ---
         const fileInput = document.getElementById("beaconFile");
         if (fileInput.files.length) {
-          const fd = new FormData();
-          fd.append("file", fileInput.files[0]);
-          fetch("/api/upload_beacons", { method: "POST", body: fd })
-            .then((r) => r.json())
-            .then((d) => {
-              if (d.status === "ok") {
-                showToast("Файл маяков успешно загружен", "success");
-                fetchBeacons();
-                fileInput.value = ""; // Очищаем поле после успешной загрузки
-              } else
-                showToast(
-                  "Ошибка загрузки: " + (d.message || "неизвестно"),
-                  "error"
-                );
-            })
-            .catch((e) => showToast("Ошибка сети при загрузке файла", "error"));
+          const file = fileInput.files[0];
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/).filter((l) => l.trim());
+            const out = {};
+            for (let i = 1; i < lines.length; i++) {
+              // пропускаем заголовок
+              const parts = lines[i].split(";");
+              if (parts.length >= 2) {
+                const x = parseFloat(parts[0].replace(",", "."));
+                const y = parseFloat(parts[1].replace(",", "."));
+                const name = parts[2]?.trim() || `beacon_${i}`;
+                if (!isNaN(x) && !isNaN(y)) out[i] = { x, y, name };
+              }
+            }
+            beacons = out;
+            board = { x: 0, y: 0 };
+            computeTransform();
+            drawAll();
+            showToast("Файл маяков успешно загружен", "success");
+            fileInput.value = ""; // Очищаем поле после загрузки
+          };
+
+          reader.onerror = () => {
+            showToast("Ошибка чтения файла маяков", "error");
+          };
+
+          reader.readAsText(file);
         }
 
         closeSettings();
@@ -399,12 +437,15 @@
           offsetY = cvs.height / 2;
           return;
         }
-        const xs = ids.map((i) => beacons[i].x),
-          ys = ids.map((i) => beacons[i].y);
-        const minX = Math.min(...xs, board.x),
-          maxX = Math.max(...xs, board.x);
-        const minY = Math.min(...ys, board.y),
-          maxY = Math.max(...ys, board.y);
+
+        // Находим минимальные и максимальные значения относительно платы
+        const xs = ids.map((i) => beacons[i].x - board.x),
+          ys = ids.map((i) => beacons[i].y - board.y);
+        const minX = Math.min(...xs),
+          maxX = Math.max(...xs);
+        const minY = Math.min(...ys),
+          maxY = Math.max(...ys);
+
         const maxRange = Math.max(
           Math.abs(minX),
           Math.abs(maxX),
@@ -416,26 +457,32 @@
         const half = Math.min(cvs.width, cvs.height) / 2 - padding;
         scale = half / maxRange;
         if (!isFinite(scale) || scale <= 0) scale = 20;
+
         offsetX = cvs.width / 2;
         offsetY = cvs.height / 2;
       }
+
       function toCanvas(p) {
-        return { x: offsetX + p.x * scale, y: offsetY - p.y * scale };
+        return {
+          x: offsetX + (p.x - board.x) * scale,
+          y: offsetY - (p.y - board.y) * scale,
+        };
       }
 
       function drawAll() {
         ctx.clearRect(0, 0, cvs.width, cvs.height);
         if (Object.keys(beacons).length === 0) {
           ctx.strokeStyle = "#34495e";
-          ctx.lineWidth = 1.2;
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(0, cvs.height / 2);
-          ctx.lineTo(cvs.width, cvs.height / 2);
+          ctx.moveTo(0, offsetY);
+          ctx.lineTo(cvs.width, offsetY);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(cvs.width / 2, 0);
-          ctx.lineTo(cvs.width / 2, cvs.height);
+          ctx.moveTo(offsetX, 0);
+          ctx.lineTo(offsetX, cvs.height);
           ctx.stroke();
+
           ctx.fillStyle = "#34495e";
           ctx.fillText("Нет маяков", 10, 20);
           return;
