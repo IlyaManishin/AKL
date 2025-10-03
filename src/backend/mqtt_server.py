@@ -63,6 +63,7 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
     pos = rssi_position.get_board_pos(stations)
     db_pos = db.BoardPosition(x=pos.x, y=pos.y)
     db.session.add(db_pos)
+    db.session.commit()
 
 
 def mqtt_run() -> None:

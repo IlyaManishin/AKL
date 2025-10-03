@@ -77,6 +77,7 @@ async def check_payment():
 async def get_positions():
     pos_objs = db.session.query(db.BoardPosition).all()
     positions = [i.to_dict() for i in pos_objs]
+    print(f"POSITIONS RETURN = {len(positions)}")
     return positions
 
 @app.get("/api/get_positions_1")
