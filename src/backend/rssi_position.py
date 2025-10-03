@@ -38,7 +38,7 @@ def load_stations() -> dict[str, Position]:
 
 d0 = 1.0
 rssi_d0 = -40
-n = 2.75
+n = 2.67
 
 def rssi_to_distance(rssi: float) -> float:
     """Переводит RSSI (дБм) в расстояние (м)"""
