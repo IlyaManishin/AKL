@@ -69,10 +69,10 @@ def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
     return (fac ** 2) * (sigma_rssi ** 2)
 
 # -----------------------------
-# robust WLS
+# robust WLS with smooth weights
 # -----------------------------
 def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optional[np.ndarray]]:
-    stations_pos = load_stations()
+    load_stations()
     beacons = []
     dists = []
     vars_ = []
@@ -93,6 +93,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     if len(beacons) < 3:
         return None, None
 
+    # select nearest 3-4 beacons
     idx_sort = np.argsort(dists)
     sel_idx = list(idx_sort[:3])
     if len(idx_sort) > 3:
@@ -102,6 +103,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     dists = dists[sel_idx]
     vars_ = vars_[sel_idx]
 
+    # initial guess
     x = np.mean(beacons[:, 0])
     y = np.mean(beacons[:, 1])
 
@@ -118,12 +120,9 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
         A = np.array(A)
         b_vec = np.array(b_vec)
 
-        w = 1.0 / vars_
+        # smooth weighting: exponential
         sigma = np.std(b_vec) if np.std(b_vec) > 1e-3 else 1.0
-        c = 1.5 * sigma
-        for i in range(len(b_vec)):
-            if abs(b_vec[i]) > c:
-                w[i] *= c / abs(b_vec[i])
+        w = np.exp(-(b_vec**2)/(2*sigma**2)) / vars_
 
         W = np.diag(w)
         AtW = A.T @ W
@@ -138,7 +137,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
         x += dx[0]
         y += dx[1]
 
-        if np.linalg.norm(dx) < 1e-3:
+        if np.linalg.norm(dx) < 1e-4:
             break
 
     cov = np.linalg.inv(H)
@@ -150,12 +149,12 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
 class EKF:
     def __init__(self, dt: float = 0.1):
         self.dt = dt
-        self.x = np.zeros((4, 1))
+        self.x = np.zeros((4, 1))  # x, y, vx, vy
         self.P = np.eye(4) * 100.0
-        self.Q = np.diag([0.1, 0.1, 1.0, 1.0])
+        self.Q = np.diag([0.5, 0.5, 0.5, 0.5])  # process noise
         self.H = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0]])
-        self.R = np.eye(2) * 2.0
+        self.R = np.eye(2) * 0.5  # measurement noise
 
     def predict(self):
         dt = self.dt
@@ -186,10 +185,10 @@ ekf = EKF(dt=0.1)
 # locate
 # -----------------------------
 def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
-    ekf.predict()
     pos, cov = robust_wls(rssi_dict)
     if pos is not None:
-        R = cov if cov is not None else np.eye(2) * 5.0
+        R = cov if cov is not None else np.eye(2) * 0.5
+        ekf.predict()
         ekf.update(np.array([pos.x, pos.y]), R=R)
     return ekf.get_state()
 
