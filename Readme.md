@@ -115,7 +115,7 @@ python src/python_test/main.py
 | ---------------- | ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Богдан Афанасьев | Разработчик | [Bogdan-Afanasev](https://github.com/Bogdan-Afanasev) | <img src="https://avatars.githubusercontent.com/u/173070174?s=64" width="64" height="64" /> |
 | Илья Манишин     | Разработчик | [IlyaManishin](https://github.com/IlyaManishin)       | <img src="https://avatars.githubusercontent.com/u/88919737?v=4" width="64" height="64" />   |
-| Артём            | Разработчик | [Artem351](https://github.com/Artem351)               | <img src="https://avatars.githubusercontent.com/u/191974021?v=4" width="64" height="64" />  |
+| Артём   Писарев         | Разработчик | [Artem351](https://github.com/Artem351)               | <img src="https://avatars.githubusercontent.com/u/191974021?v=4" width="64" height="64" />  |
 
 ---
 
