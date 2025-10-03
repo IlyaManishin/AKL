@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy import Column, DateTime, Integer, String, create_engine, desc
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
@@ -32,10 +32,6 @@ Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# пример сохранения записи
-if __name__ == "__main__":
-    from datetime import datetime
-    new_pos = BoardPosition(time=datetime.now(), name="beacon_1", rssi=-73)
-    session.add(new_pos)
-    session.commit()
-    print("Сохранено в data.db")
+
+def get_last_pos():
+    session.query(BoardPosition).order_by(desc(BoardPosition.time)).first()

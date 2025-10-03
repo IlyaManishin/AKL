@@ -1,8 +1,5 @@
 import numpy as np
 
-# =============================
-# Конфигурация маяков
-# =============================
 
 BEACONS = {
     "beacon_1": (3.0, -2.4),
@@ -15,17 +12,14 @@ BEACONS = {
     "beacon_8": (-1.8, 40.8),
 }
 
-# Калибровка (примерные, потом замерить!)
-RSSI0 = {b: -59 for b in BEACONS}   # RSSI на 1 м
-N = {b: 2.0 for b in BEACONS}       # показатель затухания
-SIGMA_RSSI = {b: 3.0 for b in BEACONS}  # std отклонение RSSI (дБ)
+
+RSSI0 = {b: -59 for b in BEACONS}  
+N = {b: 2.0 for b in BEACONS}      
+SIGMA_RSSI = {b: 3.0 for b in BEACONS} 
 
 ln10 = np.log(10)
 
 
-# =============================
-# RSSI → расстояние
-# =============================
 def rssi_to_distance(rssi, rssi0, n):
     return 10 ** ((rssi0 - rssi) / (10.0 * n))
 
@@ -35,9 +29,6 @@ def var_distance_from_rssi(d, n, sigma_rssi):
     return (fac**2) * (sigma_rssi**2)
 
 
-# =============================
-# Робастная взвешенная WLS
-# =============================
 def robust_wls(rssi_dict):
     """
     rssi_dict = {"beacon_1": -70, "beacon_2": -80, ...}
@@ -47,7 +38,6 @@ def robust_wls(rssi_dict):
     dists = []
     vars_ = []
 
-    # RSSI -> distance + дисперсия
     for b, rssi in rssi_dict.items():
         if b not in BEACONS:
             continue
@@ -64,7 +54,6 @@ def robust_wls(rssi_dict):
     if len(beacons) < 3:
         return None, None
 
-    # Выбор подмножества: 3 ближайших + 1 дальний
     idx_sort = np.argsort(dists)
     sel_idx = list(idx_sort[:3])
     if len(idx_sort) > 3:
@@ -74,12 +63,10 @@ def robust_wls(rssi_dict):
     dists = dists[sel_idx]
     vars_ = vars_[sel_idx]
 
-    # WLS (итеративно с Huber)
     x = np.mean(beacons[:, 0])
     y = np.mean(beacons[:, 1])
 
     for _ in range(10):
-        # Составляем систему
         A = []
         b = []
         for (bx, by), di in zip(beacons, dists):
@@ -92,9 +79,7 @@ def robust_wls(rssi_dict):
         A = np.array(A)
         b = np.array(b)
 
-        # Веса по дисперсиям
         w = 1.0 / vars_
-        # Huber для робастности
         sigma = np.std(b) if np.std(b) > 1e-3 else 1.0
         c = 1.5 * sigma
         for i in range(len(b)):
@@ -121,13 +106,10 @@ def robust_wls(rssi_dict):
     return (x, y), cov
 
 
-# =============================
-# EKF для сглаживания
-# =============================
 class EKF:
     def __init__(self, dt=0.1):
         self.dt = dt
-        self.x = np.zeros((4, 1))  # [x, y, vx, vy]
+        self.x = np.zeros((4, 1))
         self.P = np.eye(4) * 100.0
 
         self.Q = np.diag([0.1, 0.1, 1.0, 1.0])
@@ -159,9 +141,6 @@ class EKF:
         return self.x[0, 0], self.x[1, 0]
 
 
-# =============================
-# Главная функция
-# =============================
 ekf = EKF(dt=0.1)
 
 def locate_from_rssi(rssi_dict):

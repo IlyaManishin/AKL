@@ -1,10 +1,19 @@
 import json
 import paho.mqtt.client as mqtt
 from typing import Any
+from datetime import datetime, timedelta
 
 import rssi_position
 from app_state import GlobalState, AppStates
+from data import db
 
+class LastPoints():
+    def __init__(self):
+        self.last_saved = None
+        
+    def get_last_saved_delta(self):
+        if self.last_saved == None:
+            return 
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "test/beacons"
@@ -47,7 +56,8 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
     if len(stations) < 2:
         return
     pos = rssi_position.get_board_pos(stations)
-    print(pos)
+    db.session.add(pos)
+    
 
 def mqtt_run() -> None:
     client: mqtt.Client = mqtt.Client()
