@@ -44,7 +44,7 @@ def rssi_to_distance(rssi: float) -> float:
     """Переводит RSSI (дБм) в расстояние (м)"""
     return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
-def get_board_pos1(data: list[StationRssi]) -> Position:
+def get_board_pos(data: list[StationRssi]) -> Position:
     if len(data) < 3:
         return
     
@@ -90,7 +90,7 @@ def get_board_pos1(data: list[StationRssi]) -> Position:
         return p2
     return Position(c1.x + dx/l*r1, c1.y + dy/l*r1)
 
-def get_board_pos(data: list[StationRssi]) -> Position:
+def get_board_pos1(data: list[StationRssi]) -> Position:
     if len(data) < 3:
         return
 

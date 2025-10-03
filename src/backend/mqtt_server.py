@@ -56,8 +56,6 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         print("Ошибка обработки:", e)
         return
 
-    for i in stations:
-        print_station(i)
     if len(stations) < 2:
         return
     pos = rssi_position.get_board_pos(stations)
