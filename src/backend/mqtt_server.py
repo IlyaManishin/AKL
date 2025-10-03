@@ -43,7 +43,6 @@ def json_data_to_station_rssi(data) -> list[rssi_position.StationRssi]:
 def print_station(station: rssi_position.StationRssi):
     print(f"{station.name} = {station.rssi}")
 
-
 def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) -> None:
     global_state.save_last_updated()
     # if global_state.get_state() == AppStates.WAITING:
@@ -56,6 +55,7 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         print("Ошибка обработки:", e)
         return
 
+    stations.sort(key=lambda i: i.rssi > - 70)
     if len(stations) < 2:
         return
     pos = rssi_position.get_board_pos(stations)
