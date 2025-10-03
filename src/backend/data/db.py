@@ -27,6 +27,7 @@ CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 DB_PATH = os.path.join(CUR_DIR, "data.db")
 
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
+Base.metadata.drop_all(engine) 
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
