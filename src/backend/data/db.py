@@ -11,14 +11,14 @@ class BoardPosition(Base):
     # нужен первичный ключ
     id = Column(Integer, primary_key=True, autoincrement=True)
     time = Column(DateTime, default=datetime.now())
-    name = Column(String)
-    rssi = Column(Integer)
+    x = Column(Integer)
+    y = Column(Integer)
 
     def to_dict(self) -> dict:
         res = {
-            "date": datetime.strftime(self.time, r"%Y:%m:%d %H:%M"),
-            "name": self.name,
-            "rssi": self.rssi
+            # "date": datetime.strftime(self.time, r"%Y:%m:%d %H:%M"),
+            "x" : self.x,
+            "y" : self.y
         }
         return res
 

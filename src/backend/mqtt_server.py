@@ -7,13 +7,16 @@ import rssi_position
 from app_state import GlobalState, AppStates
 from data import db
 
+
 class LastPoints():
     def __init__(self):
         self.last_saved = None
-        
+
     def get_last_saved_delta(self):
         if self.last_saved == None:
-            return 
+            return
+
+
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "test/beacons"
@@ -36,8 +39,10 @@ def json_data_to_station_rssi(data) -> list[rssi_position.StationRssi]:
             pass
     return res
 
+
 def print_station(station: rssi_position.StationRssi):
     print(f"{station.name} = {station.rssi}")
+
 
 def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) -> None:
     global_state.save_last_updated()
@@ -49,15 +54,16 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         stations = json_data_to_station_rssi(data)
     except Exception as e:
         print("Ошибка обработки:", e)
-        return 
-    
+        return
+
     for i in stations:
-        print_station(i) 
+        print_station(i)
     if len(stations) < 2:
         return
     pos = rssi_position.get_board_pos(stations)
-    db.session.add(pos)
-    
+    db_pos = db.BoardPosition(x=pos.x, y=pos.y)
+    db.session.add(db_pos)
+
 
 def mqtt_run() -> None:
     client: mqtt.Client = mqtt.Client()
