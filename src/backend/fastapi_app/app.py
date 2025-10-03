@@ -78,8 +78,8 @@ async def get_positions():
     pos_objs = db.session.query(db.BoardPosition).all()
     positions = [i.to_dict() for i in pos_objs]
     print(f"POSITIONS RETURN = {len(positions)}")
-    print(positions)
-    return positions
+    res = {"positions" : positions}
+    return JSONResponse(content=res)
 
 @app.get("/api/get_positions_1")
 async def get_positions_1():
