@@ -84,8 +84,8 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
     if len(stations) < 3:
         return
     pos = rssi_position.get_board_pos(stations)
-    if not is_valid_pos(pos):
-        return
+    # if not is_valid_pos(pos):
+    #     return
     db_pos = db.BoardPosition(x=pos.x, y=pos.y)
     db.session.add(db_pos)
     db.session.commit()
