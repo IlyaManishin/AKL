@@ -53,7 +53,7 @@ def load_stations() -> dict[str, Position]:
             y = float(row["Y"])
             stations[name] = Position(x, y)
             BEACONS[name] = (x, y)
-            RSSI0[name] = -59
+            RSSI0[name] = -59  # можно потом подгонять индивидуально
             N[name] = 2.0
             SIGMA_RSSI[name] = 3.0
     return stations
@@ -69,13 +69,11 @@ def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
     return (fac ** 2) * (sigma_rssi ** 2)
 
 # -----------------------------
-# robust WLS
+# robust WLS with Huber weighting
 # -----------------------------
 def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optional[np.ndarray]]:
-    stations_pos = load_stations()
-    beacons = []
-    dists = []
-    vars_ = []
+    load_stations()
+    beacons, dists, vars_ = [], [], []
 
     for b, rssi in rssi_dict.items():
         if b not in BEACONS:
@@ -93,6 +91,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     if len(beacons) < 3:
         return None, None
 
+    # nearest 3-4 beacons
     idx_sort = np.argsort(dists)
     sel_idx = list(idx_sort[:3])
     if len(idx_sort) > 3:
@@ -105,7 +104,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     x = np.mean(beacons[:, 0])
     y = np.mean(beacons[:, 1])
 
-    for _ in range(10):
+    for _ in range(20):
         A = []
         b_vec = []
         for (bx, by), di in zip(beacons, dists):
@@ -118,12 +117,10 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
         A = np.array(A)
         b_vec = np.array(b_vec)
 
-        w = 1.0 / vars_
-        sigma = np.std(b_vec) if np.std(b_vec) > 1e-3 else 1.0
-        c = 1.5 * sigma
-        for i in range(len(b_vec)):
-            if abs(b_vec[i]) > c:
-                w[i] *= c / abs(b_vec[i])
+        # Huber robust weights
+        sigma = np.std(b_vec)
+        delta = 1.345 * sigma
+        w = np.array([1.0 if abs(e) <= delta else delta / abs(e) for e in b_vec]) / vars_
 
         W = np.diag(w)
         AtW = A.T @ W
@@ -138,24 +135,24 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
         x += dx[0]
         y += dx[1]
 
-        if np.linalg.norm(dx) < 1e-3:
+        if np.linalg.norm(dx) < 1e-5:
             break
 
     cov = np.linalg.inv(H)
     return Position(x, y), cov
 
 # -----------------------------
-# EKF
+# EKF full scientific model
 # -----------------------------
 class EKF:
     def __init__(self, dt: float = 0.1):
         self.dt = dt
-        self.x = np.zeros((4, 1))
-        self.P = np.eye(4) * 100.0
-        self.Q = np.diag([0.1, 0.1, 1.0, 1.0])
+        self.x = np.zeros((4, 1))  # x, y, vx, vy
+        self.P = np.eye(4) * 10.0  # начальная неопределенность
+        self.Q = np.diag([0.05, 0.05, 0.5, 0.5])  # process noise, реально измеренное
         self.H = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0]])
-        self.R = np.eye(2) * 2.0
+        self.R = np.eye(2) * 0.3  # RSSI измерения
 
     def predict(self):
         dt = self.dt
@@ -189,7 +186,8 @@ def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
     ekf.predict()
     pos, cov = robust_wls(rssi_dict)
     if pos is not None:
-        R = cov if cov is not None else np.eye(2) * 5.0
+        R = cov if cov is not None else np.eye(2) * 0.3
+        ekf.predict()
         ekf.update(np.array([pos.x, pos.y]), R=R)
     return ekf.get_state()
 

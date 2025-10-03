@@ -14,9 +14,6 @@ STATIONS_PATH = os.path.join(CUR_DIR, "data", "beacons.txt")
 
 ln10 = np.log(10)
 
-# -----------------------------
-# dataclasses
-# -----------------------------
 @dataclass
 class Position:
     x: float
@@ -27,17 +24,13 @@ class StationRssi:
     name: str
     rssi: float
 
-# -----------------------------
-# constants
-# -----------------------------
+
 RSSI0 = {}
 N = {}
 SIGMA_RSSI = {}
 BEACONS = {}
 
-# -----------------------------
-# file/stations
-# -----------------------------
+
 def check_stations_path() -> bool:
     return os.path.exists(STATIONS_PATH)
 
@@ -58,19 +51,18 @@ def load_stations() -> dict[str, Position]:
             SIGMA_RSSI[name] = 3.0
     return stations
 
-# -----------------------------
-# distance calculations
-# -----------------------------
-def rssi_to_distance(rssi: float, rssi0: float, n: float) -> float:
-    return 10 ** ((rssi0 - rssi) / (10.0 * n))
+
+d0 = 1.0
+rssi_d0 = -40
+n = 2.67
+
+def rssi_to_distance(rssi: float) -> float:
+    return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
 def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
     fac = (d * ln10 / (10.0 * n))
     return (fac ** 2) * (sigma_rssi ** 2)
 
-# -----------------------------
-# robust WLS
-# -----------------------------
 def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optional[np.ndarray]]:
     stations_pos = load_stations()
     beacons = []
@@ -144,9 +136,6 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     cov = np.linalg.inv(H)
     return Position(x, y), cov
 
-# -----------------------------
-# EKF
-# -----------------------------
 class EKF:
     def __init__(self, dt: float = 0.1):
         self.dt = dt
@@ -182,9 +171,6 @@ class EKF:
 
 ekf = EKF(dt=0.1)
 
-# -----------------------------
-# locate
-# -----------------------------
 def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
     ekf.predict()
     pos, cov = robust_wls(rssi_dict)
