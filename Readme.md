@@ -117,7 +117,6 @@ python src/python_test/main.py
 | Илья Манишин     | Разработчик | [IlyaManishin](https://github.com/IlyaManishin)       | <img src="https://avatars.githubusercontent.com/u/88919737?v=4" width="64" height="64" />   |
 | Артём Писарев    | Разработчик | [Artem351](https://github.com/Artem351)               | <img src="https://avatars.githubusercontent.com/u/191974021?v=4" width="64" height="64" />  |
 | Игорь Кругов     | Разработчик | [Igor2569](https://github.com/Igor2569)               | <img src="https://avatars.githubusercontent.com/u/66468438?v=4" width="64" height="64" />   |
-| Большой брат     | ИИ          | [ChatGPT](https://chatgpt.com)                        | <img src="https://avatars.githubusercontent.com/u/63459543?s=64" width="64" height="64" />  |
 
 ---
 
