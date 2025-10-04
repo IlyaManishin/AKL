@@ -101,6 +101,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     dists = dists[sel_idx]
     vars_ = vars_[sel_idx]
 
+    # initial guess
     x = np.mean(beacons[:, 0])
     y = np.mean(beacons[:, 1])
 
@@ -183,7 +184,6 @@ ekf = EKF(dt=0.1)
 # locate
 # -----------------------------
 def locate_from_rssi(rssi_dict: dict[str, float]) -> tuple[float, float]:
-    ekf.predict()
     pos, cov = robust_wls(rssi_dict)
     if pos is not None:
         R = cov if cov is not None else np.eye(2) * 0.3

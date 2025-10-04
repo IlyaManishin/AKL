@@ -51,12 +51,18 @@ def load_stations() -> dict[str, Position]:
             SIGMA_RSSI[name] = 3.0
     return stations
 
+# -----------------------------
+# distance calculations
+# -----------------------------
+# def rssi_to_distance(rssi: float, rssi0: float, n: float) -> float:
+#     return 10 ** ((rssi0 - rssi) / (10.0 * n))
 
 d0 = 1.0
 rssi_d0 = -40
 n = 2.67
 
 def rssi_to_distance(rssi: float) -> float:
+    """Переводит RSSI (дБм) в расстояние (м)"""
     return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
 def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
