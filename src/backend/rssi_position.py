@@ -78,7 +78,7 @@ def robust_wls(rssi_dict: dict[str, float]) -> tuple[Optional[Position], Optiona
     for b, rssi in rssi_dict.items():
         if b not in BEACONS:
             continue
-        d = rssi_to_distance(rssi)
+        d = rssi_to_distance(rssi, RSSI0[b], N[b])
         var_d = var_distance_from_rssi(d, N[b], SIGMA_RSSI[b])
         beacons.append(BEACONS[b])
         dists.append(d)
