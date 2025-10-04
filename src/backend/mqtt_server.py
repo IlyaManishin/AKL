@@ -12,16 +12,16 @@ large = timedelta(days=1)
 
 
 class LastPoints():
+    def __init__(self):
+        self.last_saved = None
 
     def get_last_saved_delta(self):
         if self.last_saved == None:
             return large
         return datetime.now() - self.last_saved
 
-    def get_last_point(self):
+    def get_last_point():
         db_pos = db.get_last_pos()
-        if not db_pos: 
-            return None
         pos = rssi_position.Position(db_pos.x, db_pos.y)
         return pos
 
@@ -59,18 +59,19 @@ def is_valid_pos(pos: rssi_position.Position):
     last = last_points.get_last_point()
     if not last:
         return True
-    last_delta = last_points.get_last_saved_delta()
+    last_time = last_points.get_last_saved_delta()
     dist = math.sqrt((pos.x - last.x) ** 2 + (pos.y - last.y) ** 2)
 
-    max_dist = m_in_sec * last_delta.seconds
+    time_delta = (datetime.now() - last_time).total_seconds()
+    max_dist = m_in_sec * time_delta
 
     return dist <= max_dist
 
 
 def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) -> None:
     global_state.save_last_updated()
-    # if global_state.get_state() == AppStates.WAITING:
-    #     return
+    if global_state.get_state() == AppStates.WAITING:
+        return
     try:
         payload_str: str = msg.payload.decode()
         data = json.loads(payload_str)
@@ -79,12 +80,12 @@ def on_board_message(client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage) 
         print("Ошибка обработки:", e)
         return
 
-    stations.sort(key=lambda i: i.rssi > - 70)
-    if len(stations) < 3:
-        return
+    # stations.sort(key=lambda i: i.rssi > - 70)
+    # if len(stations) < 3:
+    #     return
     pos = rssi_position.get_board_pos(stations)
-    if not is_valid_pos(pos):
-        return
+    # if not is_valid_pos(pos):
+    #     return
     db_pos = db.BoardPosition(x=pos.x, y=pos.y)
     db.session.add(db_pos)
     db.session.commit()

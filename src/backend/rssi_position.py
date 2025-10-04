@@ -6,13 +6,11 @@ from typing import Optional, List
 
 import numpy as np
 
-# -----------------------------
-# paths
-# -----------------------------
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 STATIONS_PATH = os.path.join(CUR_DIR, "data", "beacons.txt")
 
 ln10 = np.log(10)
+
 
 @dataclass
 class Position:
@@ -23,7 +21,6 @@ class Position:
 class StationRssi:
     name: str
     rssi: float
-
 
 RSSI0 = {}
 N = {}
@@ -51,19 +48,8 @@ def load_stations() -> dict[str, Position]:
             SIGMA_RSSI[name] = 3.0
     return stations
 
-# -----------------------------
-# distance calculations
-# -----------------------------
 def rssi_to_distance(rssi: float, rssi0: float, n: float) -> float:
     return 10 ** ((rssi0 - rssi) / (10.0 * n))
-
-# d0 = 1.0
-# rssi_d0 = -40
-# n = 2.67
-
-# def rssi_to_distance(rssi: float) -> float:
-#     """Переводит RSSI (дБм) в расстояние (м)"""
-#     return d0 * 10 ** ((rssi_d0 - rssi) / (10 * n))
 
 def var_distance_from_rssi(d: float, n: float, sigma_rssi: float) -> float:
     fac = (d * ln10 / (10.0 * n))
