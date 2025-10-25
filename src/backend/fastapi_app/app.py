@@ -7,7 +7,6 @@ import pathlib
 
 from app_state import GlobalState, AppStates
 from data import db
-import math
 import time
 from typing import List
 import random
@@ -18,11 +17,9 @@ app = FastAPI()
 
 positions: List[dict] = []
 
-# Абсолютный путь к каталогу "static" (src/backend/fastapi_app/static)
 static_path = pathlib.Path(__file__).parent / "static"
 data_path = pathlib.Path(__file__).parent.parent / "data" / "beacons.txt"
 
-# Подключаем статические файлы
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 global_state = GlobalState()
 
@@ -71,8 +68,6 @@ async def upload_beacons(file: UploadFile = File(...)):
 async def check_payment():
     return {"res": global_state.is_board_turn_on()}
 
-
-
 @app.get("/api/get_positions")
 async def get_positions():
     pos_objs = db.session.query(db.BoardPosition).all()
@@ -84,7 +79,6 @@ async def get_positions():
 @app.get("/api/get_positions_1")
 async def get_positions_1():
     global positions
-    # добавляем новую случайную точку каждые 2 секунды
     if not positions:
         new_pos = {"x": random.uniform(0, 0), "y": random.uniform(0, 0)}
     else:
